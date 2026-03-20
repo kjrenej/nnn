@@ -1,0 +1,5 @@
+{
+    "chat.requestQueuing.defaultAction": "queue",
+    "chat.agent.maxRequests": 1e+94,
+    "chat.agent.enabled": true
+}
