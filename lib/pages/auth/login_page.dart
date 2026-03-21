@@ -95,7 +95,7 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
- Future<void> _signIn() async {
+  Future<void> _signIn() async {
     if (!_loginFormKey.currentState!.validate()) return;
     setState(() => _loading = true);
     try {
@@ -133,7 +133,7 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
- Future<void> _register() async {
+  Future<void> _register() async {
     if (!_signupFormKey.currentState!.validate()) return;
     setState(() => _loading = true);
     try {
@@ -372,25 +372,6 @@ class _LoginPageState extends State<LoginPage> {
                                 ),
                                 label: 'Continue with Google',
                                 onPressed: _loading ? () {} : _signInWithGoogle,
-                              ),
-                            ),
-
-                            // Apple button
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                              child: _buildSocialButton(
-                                context,
-                                iconWidget: Icon(
-                                  Icons.apple,
-                                  size: 24,
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurface,
-                                ),
-                                label: 'Continue with Apple',
-                                onPressed: () {
-                                  // TODO: Implement Apple sign-in
-                                },
                               ),
                             ),
 
