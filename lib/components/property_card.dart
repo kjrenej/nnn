@@ -38,10 +38,7 @@ class PropertyCard extends StatelessWidget {
           // ── Image with status badge ──
           Stack(
             children: [
-              
-                tag: 'property-image-${listing.id}',
-                
-                 AspectRatio(
+              AspectRatio(
                 aspectRatio: 16 / 9,
                 child: imageUrl != null
                     ? CachedNetworkImage(

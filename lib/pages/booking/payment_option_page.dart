@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 import '../../auth/auth_service.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
@@ -58,7 +59,6 @@ class _PaymentOptionPageState extends State<PaymentOptionPage> {
         ),
       );
 
-      // Create a room card so it displays on the home page for the user
       await DatabaseService.instance.upsertViewRoomCard(
         ViewRoomCardRow(
           id: uid,
@@ -71,7 +71,6 @@ class _PaymentOptionPageState extends State<PaymentOptionPage> {
         ),
       );
 
-      // Change listing status to booked so it isn't shown to others
       await DatabaseService.instance.updateListing(widget.listingId, {
         'status': 'booked',
       });
@@ -85,21 +84,24 @@ class _PaymentOptionPageState extends State<PaymentOptionPage> {
       }
     } catch (e) {
       if (mounted) {
-        CustomAlert.showToast(context, 'Database Error: $e', type: AlertType.error);
+        CustomAlert.showToast(context, 'Database Error: $e',
+            type: AlertType.error);
       }
     }
   }
 
   void _handlePaymentError(PaymentFailureResponse response) {
     if (mounted) {
-      CustomAlert.showToast(context, 'Payment Failed: ${response.message}', type: AlertType.error);
+      CustomAlert.showToast(context, 'Payment Failed: ${response.message}',
+          type: AlertType.error);
     }
     setState(() => _paying = false);
   }
 
   void _handleExternalWallet(ExternalWalletResponse response) {
     if (mounted) {
-      CustomAlert.showToast(context, 'External wallet selected: ${response.walletName}');
+      CustomAlert.showToast(
+          context, 'External wallet selected: ${response.walletName}');
     }
   }
 
@@ -108,7 +110,8 @@ class _PaymentOptionPageState extends State<PaymentOptionPage> {
       _listing = await DatabaseService.instance.getListing(widget.listingId);
     } catch (e) {
       if (mounted) {
-        CustomAlert.showToast(context, 'Error loading listing: $e', type: AlertType.error);
+        CustomAlert.showToast(context, 'Error loading listing: $e',
+            type: AlertType.error);
       }
     }
     if (mounted) {
@@ -129,9 +132,20 @@ class _PaymentOptionPageState extends State<PaymentOptionPage> {
   }
 
   void _pay() {
+    // Razorpay only works on Android/iOS
+    if (kIsWeb) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Payment is only available on the mobile app.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
     if (_totalAmount <= 0) {
       if (mounted) {
-         CustomAlert.showToast(context, 'Invalid amount', type: AlertType.error);
+        CustomAlert.showToast(context, 'Invalid amount', type: AlertType.error);
       }
       return;
     }
@@ -148,7 +162,8 @@ class _PaymentOptionPageState extends State<PaymentOptionPage> {
     } catch (e) {
       setState(() => _paying = false);
       if (mounted) {
-        CustomAlert.showToast(context, 'Error starting payment', type: AlertType.error);
+        CustomAlert.showToast(context, 'Error starting payment',
+            type: AlertType.error);
       }
     }
   }
@@ -182,8 +197,6 @@ class _PaymentOptionPageState extends State<PaymentOptionPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 16),
-
-                    // Price Breakdown card
                     Container(
                       width: double.infinity,
                       decoration: BoxDecoration(
@@ -191,69 +204,42 @@ class _PaymentOptionPageState extends State<PaymentOptionPage> {
                         borderRadius: BorderRadius.circular(24),
                       ),
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 16,
-                      ),
+                          horizontal: 16, vertical: 16),
                       child: Column(
                         children: [
                           Text(
                             'Price Breakdown',
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
+                            style: theme.textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w600),
                           ),
                           const SizedBox(height: 12),
-                          Divider(
-                            height: 1,
-                            thickness: 1,
-                            color: Colors.grey[300],
-                          ),
+                          Divider(height: 1, thickness: 1, color: Colors.grey[300]),
                           const SizedBox(height: 12),
-                          _breakdownRow(
-                            'Monthly Rent',
-                            '₹${_listing!.price ?? 0}',
-                            theme,
-                          ),
+                          _breakdownRow('Monthly Rent',
+                              '₹${_listing!.price ?? 0}', theme),
                           const SizedBox(height: 12),
-                          _breakdownRow(
-                            'Security Deposit (Refundable)',
-                            '₹${_listing!.securityDeposit ?? 0}',
-                            theme,
-                          ),
+                          _breakdownRow('Security Deposit (Refundable)',
+                              '₹${_listing!.securityDeposit ?? 0}', theme),
                           const SizedBox(height: 12),
-                          _breakdownRow(
-                            'Maintenance',
-                            '₹${_listing!.monthlyMaintenance ?? 0}',
-                            theme,
-                          ),
+                          _breakdownRow('Maintenance',
+                              '₹${_listing!.monthlyMaintenance ?? 0}', theme),
                           const SizedBox(height: 12),
-                          _breakdownRow(
-                            'Brokerage (one-time)',
-                            '₹${_brokerage.toStringAsFixed(0)}',
-                            theme,
-                          ),
+                          _breakdownRow('Brokerage (one-time)',
+                              '₹${_brokerage.toStringAsFixed(0)}', theme),
                           const SizedBox(height: 12),
-                          Divider(
-                            height: 1,
-                            thickness: 1,
-                            color: Colors.grey[300],
-                          ),
+                          Divider(height: 1, thickness: 1, color: Colors.grey[300]),
                           const SizedBox(height: 12),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                'Total Amount',
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
+                              Text('Total Amount',
+                                  style: theme.textTheme.titleMedium
+                                      ?.copyWith(fontWeight: FontWeight.bold)),
                               Text(
                                 '₹${_totalAmount.toStringAsFixed(0)}',
                                 style: theme.textTheme.titleMedium?.copyWith(
-                                  color: Colors.green,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                                    color: Colors.green,
+                                    fontWeight: FontWeight.bold),
                               ),
                             ],
                           ),
@@ -261,17 +247,10 @@ class _PaymentOptionPageState extends State<PaymentOptionPage> {
                       ),
                     ),
                     const SizedBox(height: 16),
-
-                    // Select Payment Method
-                    Text(
-                      'Select Payment Method',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                    Text('Select Payment Method',
+                        style: theme.textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w600)),
                     const SizedBox(height: 16),
-
-                    // Credit/Debit Card
                     _PaymentMethodCard(
                       icon: Icons.credit_card,
                       title: 'Credit/Debit Card',
@@ -280,8 +259,6 @@ class _PaymentOptionPageState extends State<PaymentOptionPage> {
                       onTap: () => setState(() => _paymentMode = 'card'),
                     ),
                     const SizedBox(height: 16),
-
-                    // Bank Transfer
                     _PaymentMethodCard(
                       icon: Icons.account_balance,
                       title: 'Bank Transfer',
@@ -290,34 +267,26 @@ class _PaymentOptionPageState extends State<PaymentOptionPage> {
                       onTap: () => setState(() => _paymentMode = 'bank'),
                     ),
                     const SizedBox(height: 16),
-
-                    // UPI
                     _PaymentMethodCard(
                       icon: Icons.payment,
                       title: 'UPI',
-                      subtitle: 'Apple Pay, Google Pay, PayPal',
+                      subtitle: 'Google Pay, PhonePe, Paytm',
                       selected: _paymentMode == 'upi',
                       onTap: () => setState(() => _paymentMode = 'upi'),
                     ),
                     const SizedBox(height: 16),
-
-                    // Info row
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 8),
                       child: Row(
                         children: [
-                          Icon(
-                            Icons.info_outline,
-                            size: 16,
-                            color: theme.colorScheme.onSurface,
-                          ),
+                          Icon(Icons.info_outline,
+                              size: 16, color: theme.colorScheme.onSurface),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               'Free cancellation until 24 hours before check-in',
                               style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurface,
-                              ),
+                                  color: theme.colorScheme.onSurface),
                             ),
                           ),
                         ],
@@ -329,11 +298,10 @@ class _PaymentOptionPageState extends State<PaymentOptionPage> {
               ),
             ),
           ),
-
-          // Bottom bar
           Container(
             width: double.infinity,
-            decoration: BoxDecoration(color: theme.scaffoldBackgroundColor),
+            decoration:
+                BoxDecoration(color: theme.scaffoldBackgroundColor),
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [
@@ -342,18 +310,13 @@ class _PaymentOptionPageState extends State<PaymentOptionPage> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        'Total Amount',
-                        style: theme.textTheme.bodyLarge?.copyWith(
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
+                      Text('Total Amount',
+                          style: theme.textTheme.bodyLarge
+                              ?.copyWith(fontWeight: FontWeight.w500)),
                       Text(
                         '₹${_totalAmount.toStringAsFixed(0)}',
                         style: theme.textTheme.titleMedium?.copyWith(
-                          color: Colors.green,
-                          fontWeight: FontWeight.bold,
-                        ),
+                            color: Colors.green, fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
@@ -369,8 +332,7 @@ class _PaymentOptionPageState extends State<PaymentOptionPage> {
                       elevation: 2,
                       padding: const EdgeInsets.all(8),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(24),
-                      ),
+                          borderRadius: BorderRadius.circular(24)),
                       textStyle: theme.textTheme.titleLarge,
                     ),
                     child: _paying
@@ -378,9 +340,7 @@ class _PaymentOptionPageState extends State<PaymentOptionPage> {
                             height: 20,
                             width: 20,
                             child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
+                                strokeWidth: 2, color: Colors.white),
                           )
                         : const Text('Pay Now'),
                   ),
@@ -397,12 +357,9 @@ class _PaymentOptionPageState extends State<PaymentOptionPage> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          label,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-          ),
-        ),
+        Text(label,
+            style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6))),
         Text(value, style: theme.textTheme.bodyMedium),
       ],
     );
@@ -459,18 +416,13 @@ class _PaymentMethodCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  Text(
-                    subtitle,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                    ),
-                  ),
+                  Text(title,
+                      style: theme.textTheme.bodyLarge
+                          ?.copyWith(fontWeight: FontWeight.w600)),
+                  Text(subtitle,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurface
+                              .withValues(alpha: 0.6))),
                 ],
               ),
             ),
@@ -480,8 +432,7 @@ class _PaymentMethodCard extends StatelessWidget {
               onChanged: (_) => onTap(),
               activeColor: Colors.green,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(4),
-              ),
+                  borderRadius: BorderRadius.circular(4)),
               side: BorderSide(width: 2, color: Colors.grey[300]!),
               visualDensity: VisualDensity.compact,
               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,

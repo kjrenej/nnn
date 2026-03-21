@@ -55,11 +55,9 @@ class AuthService extends ChangeNotifier {
           final createdAt = user.createdAt;
           final now = DateTime.now();
           // Consider "new" if account was created within the last 30 seconds
-          if (createdAt != null) {
-            final diff = now.difference(DateTime.parse(createdAt)).abs();
-            _isNewUser = diff.inSeconds < 30;
-          }
-        } else if (event == AuthChangeEvent.userUpdated) {
+          final diff = now.difference(DateTime.parse(createdAt)).abs();
+          _isNewUser = diff.inSeconds < 30;
+                } else if (event == AuthChangeEvent.userUpdated) {
           _isNewUser = false;
         }
       } else {

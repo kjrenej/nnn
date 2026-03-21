@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
-import '../../config/app_config.dart';
+import '../config/app_config.dart';
 
 /// Wrapper around Google Gemini Generative AI REST API.
 class GeminiService {

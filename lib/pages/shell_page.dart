@@ -24,15 +24,7 @@ class ShellPage extends StatelessWidget {
     final index = _currentIndex(context);
 
     return Scaffold(
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 300),
-        switchInCurve: Curves.easeOutCubic,
-        switchOutCurve: Curves.easeInCubic,
-        transitionBuilder: (child, animation) {
-          return FadeTransition(opacity: animation, child: child);
-        },
-        child: KeyedSubtree(key: ValueKey(index), child: child),
-      ),
+      body: KeyedSubtree(key: ValueKey(index), child: child),
       bottomNavigationBar: AnimatedNavBar(
         currentIndex: index,
         onTap: (i) {

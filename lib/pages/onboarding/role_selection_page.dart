@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../auth/auth_service.dart';
 import '../../backend/database_service.dart';
+import '../../backend/models/user_row.dart';
 import '../../config/constants.dart';
 import '../../state/app_state.dart';
 import '../../theme/rento_theme.dart';
@@ -23,10 +24,19 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
     setState(() => _loading = true);
     try {
       final uid = AuthService.instance.currentUserUid;
-      await DatabaseService.instance.updateUser(uid, {
-        'role': _selectedRole,
-        'onboarding_step': 2,
-      });
+      final email = AuthService.instance.currentUserEmail;
+
+      // Use upsert so the row is CREATED if it doesn't exist yet,
+      // and UPDATED if it does. Plain updateUser() silently does nothing
+      // when the row is missing, causing role to never be saved.
+      await DatabaseService.instance.upsertUser(
+        UserRow(
+          id: uid,
+          email: email,
+          role: _selectedRole,
+          onboardingStep: 2,
+        ),
+      );
 
       final appState = AppState.instance;
       if (_selectedRole == AppConstants.roleRentee) {
