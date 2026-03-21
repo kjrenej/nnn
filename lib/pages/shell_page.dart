@@ -24,7 +24,11 @@ class ShellPage extends StatelessWidget {
     final index = _currentIndex(context);
 
     return Scaffold(
-      body: KeyedSubtree(key: ValueKey(index), child: child),
+      // FIX: Removed KeyedSubtree(key: ValueKey(index)) wrapper.
+      // Using a ValueKey tied to the tab index forces the ENTIRE child subtree
+      // to rebuild and lose state every time the tab changes. ShellRoute already
+      // handles state preservation correctly — let it do its job.
+      body: child,
       bottomNavigationBar: AnimatedNavBar(
         currentIndex: index,
         onTap: (i) {

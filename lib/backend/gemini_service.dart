@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
@@ -10,6 +11,9 @@ class GeminiService {
 
   static const _baseUrl =
       'https://generativelanguage.googleapis.com/v1beta/models';
+
+  // FIX: Added timeout to prevent requests from hanging indefinitely
+  static const _timeout = Duration(seconds: 30);
 
   /// Generates text from a prompt.
   Future<String> generateText(String prompt) async {
@@ -26,14 +30,22 @@ class GeminiService {
       ],
     });
 
-    final response = await http.post(
-      url,
-      headers: {'Content-Type': 'application/json'},
-      body: body,
-    );
+    final response = await http
+        .post(
+          url,
+          headers: {'Content-Type': 'application/json'},
+          body: body,
+        )
+        .timeout(
+          _timeout,
+          onTimeout: () =>
+              throw TimeoutException('Gemini API request timed out'),
+        );
 
     if (response.statusCode != 200) {
-      throw Exception('Gemini API error: ${response.statusCode}');
+      throw Exception(
+        'Gemini API error: ${response.statusCode} — ${response.body}',
+      );
     }
 
     final json = jsonDecode(response.body) as Map<String, dynamic>;
@@ -69,14 +81,22 @@ class GeminiService {
       ],
     });
 
-    final response = await http.post(
-      url,
-      headers: {'Content-Type': 'application/json'},
-      body: body,
-    );
+    final response = await http
+        .post(
+          url,
+          headers: {'Content-Type': 'application/json'},
+          body: body,
+        )
+        .timeout(
+          _timeout,
+          onTimeout: () =>
+              throw TimeoutException('Gemini Vision API request timed out'),
+        );
 
     if (response.statusCode != 200) {
-      throw Exception('Gemini Vision API error: ${response.statusCode}');
+      throw Exception(
+        'Gemini Vision API error: ${response.statusCode} — ${response.body}',
+      );
     }
 
     final json = jsonDecode(response.body) as Map<String, dynamic>;

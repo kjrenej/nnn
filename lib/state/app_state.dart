@@ -70,11 +70,15 @@ class AppState extends ChangeNotifier {
   }
 
   /// Resets state (called on sign-out).
+  /// FIX: Only removes app-specific keys instead of clearing ALL preferences.
+  /// Previously called _prefs.clear() which deleted data from other packages
+  /// that also use SharedPreferences (e.g., recent search history).
   Future<void> reset() async {
     _isRentee = false;
     _isLandlord = false;
     _searchFilter = '';
-    await _prefs.clear();
+    await _prefs.remove('rentee');
+    await _prefs.remove('landlord');
     notifyListeners();
   }
 }

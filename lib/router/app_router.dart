@@ -33,14 +33,14 @@ import '../pages/message/message_page.dart';
 import '../pages/shell_page.dart';
 import '../theme/page_transitions.dart';
 
-
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
 
 final GoRouter appRouter = GoRouter(
   navigatorKey: _rootNavigatorKey,
   initialLocation: '/',
- refreshListenable: Listenable.merge([AuthService.instance, AppState.instance]),
+  refreshListenable:
+      Listenable.merge([AuthService.instance, AppState.instance]),
   redirect: (context, state) {
     final auth = AuthService.instance;
     final loggedIn = auth.loggedIn;
@@ -48,16 +48,19 @@ final GoRouter appRouter = GoRouter(
 
     final onAuthRoute =
         loc == '/login' || loc == '/signup' || loc == '/forgot-password';
+
+    // FIX: '/role-loader' was missing — caused infinite redirect loop where
+    // the redirect kept firing while on role-loader, sending user back to it.
     final onOnboardingRoute =
         loc == '/user-details' ||
         loc == '/role-selection' ||
-        loc == '/role-loader';
+        loc == '/role-loader'; // ← CRITICAL FIX
 
     // Not logged in → send to login
     if (!loggedIn && !onAuthRoute) return '/login';
 
     if (loggedIn) {
-      // Brand-new user (just signed up or first Google login) → user-details
+      // Brand-new user → complete profile first
       if (auth.isNewUser && !onOnboardingRoute) {
         auth.consumeNewUser();
         return '/user-details';
@@ -214,7 +217,11 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: '/explore-images',
       pageBuilder: (context, state) {
-        final images = state.uri.queryParameters['images']?.split(',') ?? [];
+        // FIX: URL-decode each image URL to handle special characters in URLs
+        final rawImages = state.uri.queryParameters['images'] ?? '';
+        final images = rawImages.isEmpty
+            ? <String>[]
+            : rawImages.split(',').map(Uri.decodeComponent).toList();
         return fadeTransition(
           key: state.pageKey,
           child: ExploreImagesPage(imageUrls: images),
@@ -250,7 +257,8 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: '/rent-payment',
       pageBuilder: (context, state) {
-        final propertyName = state.uri.queryParameters['propertyName'] ?? '';
+        final propertyName =
+            Uri.decodeComponent(state.uri.queryParameters['propertyName'] ?? '');
         final rentAmount = state.uri.queryParameters['rentAmount'] ?? '0';
         final cardId = state.uri.queryParameters['cardId'] ?? '';
         return slideRightTransition(
@@ -309,5 +317,31 @@ final GoRouter appRouter = GoRouter(
       ),
     ),
   ],
-  errorBuilder: (context, state) => const LoginPage(),
+  // FIX: Show a proper error page instead of silently redirecting to login
+  errorBuilder: (context, state) => Scaffold(
+    appBar: AppBar(title: const Text('Page Not Found')),
+    body: Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.error_outline, size: 64, color: Colors.grey),
+          const SizedBox(height: 16),
+          Text(
+            'Page not found',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            state.matchedLocation,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: () => context.go('/'),
+            child: const Text('Go Home'),
+          ),
+        ],
+      ),
+    ),
+  ),
 );

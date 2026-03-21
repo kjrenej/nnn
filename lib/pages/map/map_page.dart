@@ -24,16 +24,14 @@ class _MapPageState extends State<MapPage> {
   Set<Marker> _markers = {};
   bool _loading = true;
 
-  String? _selectedType; // null = show all
-  ListingRow? _selectedListing; // listing for bottom card
+  String? _selectedType;
+  ListingRow? _selectedListing;
 
-  // Default camera: center of India
   static const _defaultCamera = CameraPosition(
     target: LatLng(22.5937, 78.9629),
     zoom: 5,
   );
 
-  // Marker colors by property type
   static final _markerHues = <String, double>{
     'House': BitmapDescriptor.hueBlue,
     'Flat': BitmapDescriptor.hueViolet,
@@ -47,18 +45,19 @@ class _MapPageState extends State<MapPage> {
     _loadListings();
   }
 
-  // ── Data loading ─────────────────────────────────────────
-
   Future<void> _loadListings() async {
     try {
       final listings = await DatabaseService.instance.getListings(limit: 200);
-      setState(() {
-        _allListings = listings;
-        _loading = false;
-      });
-      _applyFilter();
-    } catch (_) {
-      setState(() => _loading = false);
+      if (mounted) {
+        setState(() {
+          _allListings = listings;
+          _loading = false;
+        });
+        _applyFilter();
+      }
+    } catch (e, s) {
+      debugPrint('MapPage._loadListings error: $e\n$s');
+      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -88,11 +87,13 @@ class _MapPageState extends State<MapPage> {
       );
     }
 
-    setState(() {
-      _filteredListings = filtered;
-      _markers = markers;
-      _selectedListing = null;
-    });
+    if (mounted) {
+      setState(() {
+        _filteredListings = filtered;
+        _markers = markers;
+        _selectedListing = null;
+      });
+    }
 
     _fitBounds(filtered);
   }
@@ -102,33 +103,37 @@ class _MapPageState extends State<MapPage> {
     double lng,
     String address,
   ) async {
-    setState(() => _loading = true);
+    if (mounted) setState(() => _loading = true);
     try {
       final listings = await DatabaseService.instance.getListingsInRadius(
         lat,
         lng,
         radiusKm: 10.0,
       );
-      setState(() {
-        _allListings = listings;
-        _loading = false;
-      });
-      _applyFilter();
+      if (mounted) {
+        setState(() {
+          _allListings = listings;
+          _loading = false;
+        });
+        _applyFilter();
+      }
 
-      // Also jump camera to the searched city
-      final controller = await _mapController.future;
-      controller.animateCamera(
-        CameraUpdate.newLatLngZoom(LatLng(lat, lng), 12),
-      );
-    } catch (_) {
-      setState(() => _loading = false);
+      if (_mapController.isCompleted) {
+        final controller = await _mapController.future;
+        controller.animateCamera(
+          CameraUpdate.newLatLngZoom(LatLng(lat, lng), 12),
+        );
+      }
+    } catch (e, s) {
+      debugPrint('MapPage._loadRadiusListings error: $e\n$s');
+      if (mounted) setState(() => _loading = false);
     }
   }
 
-  // ── Map helpers ──────────────────────────────────────────
-
   Future<void> _fitBounds(List<ListingRow> listings) async {
-    if (listings.isEmpty) return;
+    // FIX: Guard against calling future before map is created.
+    // Previously this could hang indefinitely if called before onMapCreated.
+    if (listings.isEmpty || !mounted || !_mapController.isCompleted) return;
 
     final controller = await _mapController.future;
 
@@ -156,21 +161,19 @@ class _MapPageState extends State<MapPage> {
           southwest: LatLng(minLat, minLng),
           northeast: LatLng(maxLat, maxLng),
         ),
-        60, // padding
+        60,
       ),
     );
   }
 
   void _onMarkerTapped(ListingRow listing) {
-    setState(() => _selectedListing = listing);
+    if (mounted) setState(() => _selectedListing = listing);
   }
 
   void _onTypeSelected(String? type) {
-    setState(() => _selectedType = type);
+    if (mounted) setState(() => _selectedType = type);
     _applyFilter();
   }
-
-  // ── UI ───────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -182,7 +185,6 @@ class _MapPageState extends State<MapPage> {
           ? const Center(child: CircularProgressIndicator())
           : Stack(
               children: [
-                // ── Google Map ──
                 GoogleMap(
                   initialCameraPosition: _defaultCamera,
                   markers: _markers,
@@ -190,30 +192,32 @@ class _MapPageState extends State<MapPage> {
                     if (!_mapController.isCompleted) {
                       _mapController.complete(controller);
                     }
+                    // FIX: After map is created, fit bounds if listings are available
+                    if (_filteredListings.isNotEmpty) {
+                      _fitBounds(_filteredListings);
+                    }
                   },
-                  onTap: (_) => setState(() => _selectedListing = null),
+                  onTap: (_) {
+                    if (mounted) setState(() => _selectedListing = null);
+                  },
                   myLocationButtonEnabled: false,
                   zoomControlsEnabled: false,
                   mapToolbarEnabled: false,
                 ),
 
-                // ── Search bar + type chips ──
                 Positioned(
                   top: MediaQuery.of(context).padding.top + 8,
                   left: 12,
                   right: 12,
                   child: Column(
                     children: [
-                      // Places Autocomplete Search Bar
                       PlacesSearchBar(
                         onPlaceSelected: _loadRadiusListings,
-                        onCleared: _loadListings, // Refresh all
+                        onCleared: _loadListings,
                       ),
                       const SizedBox(height: 8),
-                      // Property type filter chips
                       _buildTypeChips(theme),
                       const SizedBox(height: 8),
-                      // Result count
                       if (_filteredListings.isNotEmpty)
                         Container(
                           padding: const EdgeInsets.symmetric(
@@ -237,18 +241,19 @@ class _MapPageState extends State<MapPage> {
                   ),
                 ),
 
-                // ── Zoom controls ──
                 Positioned(
                   right: 12,
                   bottom: _selectedListing != null ? 290 : 24,
                   child: Column(
                     children: [
                       _mapButton(Icons.add, () async {
+                        if (!_mapController.isCompleted) return;
                         final c = await _mapController.future;
                         c.animateCamera(CameraUpdate.zoomIn());
                       }),
                       const SizedBox(height: 8),
                       _mapButton(Icons.remove, () async {
+                        if (!_mapController.isCompleted) return;
                         final c = await _mapController.future;
                         c.animateCamera(CameraUpdate.zoomOut());
                       }),
@@ -260,7 +265,6 @@ class _MapPageState extends State<MapPage> {
                   ),
                 ),
 
-                // ── Selected property bottom card ──
                 if (_selectedListing != null)
                   Positioned(
                     left: 0,
@@ -269,7 +273,6 @@ class _MapPageState extends State<MapPage> {
                     child: _buildPropertyCard(theme, _selectedListing!),
                   ),
 
-                // ── Empty state ──
                 if (!_loading && _filteredListings.isEmpty)
                   Center(
                     child: Container(
@@ -310,8 +313,6 @@ class _MapPageState extends State<MapPage> {
     );
   }
 
-  // ── Type filter chips ────────────────────────────────────
-
   Widget _buildTypeChips(ThemeData theme) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
@@ -330,7 +331,6 @@ class _MapPageState extends State<MapPage> {
         scrollDirection: Axis.horizontal,
         child: Row(
           children: [
-            // "All" chip
             Padding(
               padding: const EdgeInsets.only(right: 6),
               child: ChoiceChip(
@@ -343,9 +343,6 @@ class _MapPageState extends State<MapPage> {
                   fontWeight: FontWeight.w600,
                   fontSize: 13,
                 ),
-                avatar: _selectedType == null
-                    ? null
-                    : const Icon(Icons.home_work, size: 16),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
                 ),
@@ -358,7 +355,8 @@ class _MapPageState extends State<MapPage> {
                 child: ChoiceChip(
                   label: Text(type),
                   selected: isSelected,
-                  onSelected: (_) => _onTypeSelected(isSelected ? null : type),
+                  onSelected: (_) =>
+                      _onTypeSelected(isSelected ? null : type),
                   selectedColor: theme.colorScheme.primary,
                   labelStyle: TextStyle(
                     color: isSelected ? Colors.white : null,
@@ -393,8 +391,6 @@ class _MapPageState extends State<MapPage> {
     }
   }
 
-  // ── Map control button ───────────────────────────────────
-
   Widget _mapButton(IconData icon, VoidCallback onTap) {
     return Material(
       elevation: 3,
@@ -415,8 +411,6 @@ class _MapPageState extends State<MapPage> {
     );
   }
 
-  // ── Property detail bottom card ──────────────────────────
-
   Widget _buildPropertyCard(ThemeData theme, ListingRow listing) {
     final imageUrl = listing.images.isNotEmpty ? listing.images.first : null;
 
@@ -435,7 +429,6 @@ class _MapPageState extends State<MapPage> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Drag handle
           Container(
             margin: const EdgeInsets.only(top: 10),
             width: 40,
@@ -450,7 +443,6 @@ class _MapPageState extends State<MapPage> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Image
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12),
                   child: SizedBox(
@@ -475,17 +467,16 @@ class _MapPageState extends State<MapPage> {
                           )
                         : Container(
                             color: Colors.grey[200],
-                            child: const Icon(Icons.home_outlined, size: 40),
+                            child:
+                                const Icon(Icons.home_outlined, size: 40),
                           ),
                   ),
                 ),
                 const SizedBox(width: 14),
-                // Details
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Name
                       Text(
                         listing.propertyName ?? 'Property',
                         style: theme.textTheme.titleMedium?.copyWith(
@@ -495,7 +486,6 @@ class _MapPageState extends State<MapPage> {
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 4),
-                      // Type + Furnishing
                       Wrap(
                         spacing: 6,
                         children: [
@@ -506,7 +496,6 @@ class _MapPageState extends State<MapPage> {
                         ],
                       ),
                       const SizedBox(height: 6),
-                      // Location
                       Row(
                         children: [
                           Icon(
@@ -530,7 +519,6 @@ class _MapPageState extends State<MapPage> {
                         ],
                       ),
                       const SizedBox(height: 8),
-                      // Price + features row
                       Row(
                         children: [
                           if (listing.price != null)
@@ -559,7 +547,6 @@ class _MapPageState extends State<MapPage> {
               ],
             ),
           ),
-          // View Details button
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             child: SizedBox(
@@ -611,7 +598,10 @@ class _MapPageState extends State<MapPage> {
       children: [
         Icon(icon, size: 14, color: Colors.grey[500]),
         const SizedBox(width: 3),
-        Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+        Text(
+          label,
+          style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+        ),
       ],
     );
   }

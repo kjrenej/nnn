@@ -32,7 +32,7 @@ class _ProfilePageState extends State<ProfilePage> {
         AuthService.instance.currentUserUid,
       );
     } catch (_) {}
-    setState(() => _loading = false);
+    if (mounted) setState(() => _loading = false);
   }
 
   Future<void> _logout() async {
@@ -43,9 +43,13 @@ class _ProfilePageState extends State<ProfilePage> {
       confirmText: 'Sign Out',
       isDestructive: true,
       onConfirm: () async {
+        // FIX: Cache AppState reference BEFORE the async gap.
+        // Using context.read() after an await is unsafe because the widget
+        // may have been disposed while the future was pending.
+        final appState = context.read<AppState>();
         await AuthService.instance.signOut();
         if (!mounted) return;
-        await context.read<AppState>().reset();
+        await appState.reset();
         if (mounted) context.go('/login');
       },
     );
@@ -185,8 +189,6 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
           ),
           const SizedBox(height: 28),
-
-          // Menu items with staggered animations
           ..._buildMenuItems(context, isDark),
         ],
       ),
@@ -204,24 +206,23 @@ class _ProfilePageState extends State<ProfilePage> {
       Color? textColor,
       Color? iconColor,
     }) {
-      final w =
-          _tile(
-                icon,
-                label,
-                onTap,
-                isDark: isDark,
-                textColor: textColor,
-                iconColor: iconColor,
-              )
-              .animate()
-              .fadeIn(delay: delay.ms, duration: 300.ms)
-              .slideX(
-                begin: 0.05,
-                end: 0,
-                delay: delay.ms,
-                duration: 300.ms,
-                curve: Curves.easeOut,
-              );
+      final w = _tile(
+            icon,
+            label,
+            onTap,
+            isDark: isDark,
+            textColor: textColor,
+            iconColor: iconColor,
+          )
+          .animate()
+          .fadeIn(delay: delay.ms, duration: 300.ms)
+          .slideX(
+            begin: 0.05,
+            end: 0,
+            delay: delay.ms,
+            duration: 300.ms,
+            curve: Curves.easeOut,
+          );
       delay += 60;
       return w;
     }

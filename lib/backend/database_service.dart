@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'models/models.dart';
 
@@ -11,12 +12,17 @@ class DatabaseService {
   // ── Users ─────────────────────────────────────────────────
 
   Future<UserRow?> getUser(String uid) async {
-    final data = await _client
-        .from('users')
-        .select()
-        .eq('id', uid)
-        .maybeSingle();
-    return data != null ? UserRow.fromJson(data) : null;
+    try {
+      final data = await _client
+          .from('users')
+          .select()
+          .eq('id', uid)
+          .maybeSingle();
+      return data != null ? UserRow.fromJson(data) : null;
+    } catch (e, stack) {
+      debugPrint('[DB] getUser error: $e\n$stack');
+      return null;
+    }
   }
 
   Future<UserRow> upsertUser(UserRow user) async {
@@ -44,7 +50,6 @@ class DatabaseService {
   }) async {
     try {
       var query = _client.from('listings').select();
-      // Try filtering by status — some DBs may not have this column populated
       query = query.eq('status', 'active');
       if (city != null) {
         query = query.or('prop_city.ilike.%$city%,property_name.ilike.%$city%');
@@ -56,8 +61,9 @@ class DatabaseService {
       if (minPrice != null) query = query.gte('price', minPrice);
       final data = await query.limit(limit);
       return (data as List).map((e) => ListingRow.fromJson(e)).toList();
-    } catch (_) {
-      // Fallback: try without status filter
+    } catch (e, stack) {
+      debugPrint('[DB] getListings (with status filter) error: $e\n$stack');
+      // Fallback: try without status filter (in case column missing)
       try {
         var query = _client.from('listings').select();
         if (city != null) {
@@ -72,7 +78,8 @@ class DatabaseService {
         if (minPrice != null) query = query.gte('price', minPrice);
         final data = await query.limit(limit);
         return (data as List).map((e) => ListingRow.fromJson(e)).toList();
-      } catch (_) {
+      } catch (e2, stack2) {
+        debugPrint('[DB] getListings (fallback) error: $e2\n$stack2');
         return <ListingRow>[];
       }
     }
@@ -90,28 +97,38 @@ class DatabaseService {
         params: {'search_lat': lat, 'search_lng': lng, 'radius_km': radiusKm},
       );
       return (data as List).map((e) => ListingRow.fromJson(e)).toList();
-    } catch (e) {
-      // Return empty list if the RPC fails (e.g., function not created yet)
+    } catch (e, stack) {
+      debugPrint('[DB] getListingsInRadius error: $e\n$stack');
       return const <ListingRow>[];
     }
   }
 
   Future<ListingRow?> getListing(String id) async {
-    final data = await _client
-        .from('listings')
-        .select()
-        .eq('id', id)
-        .maybeSingle();
-    return data != null ? ListingRow.fromJson(data) : null;
+    try {
+      final data = await _client
+          .from('listings')
+          .select()
+          .eq('id', id)
+          .maybeSingle();
+      return data != null ? ListingRow.fromJson(data) : null;
+    } catch (e, stack) {
+      debugPrint('[DB] getListing error: $e\n$stack');
+      return null;
+    }
   }
 
+  /// Returns all listings owned by [ownerId].
+  /// NOTE: This queries by 'id' column assuming listing ID == landlord UID
+  /// (the current single-listing-per-landlord schema).
+  /// For multi-listing support, add an 'owner_id' column to the listings table
+  /// and change this query to: .eq('owner_id', ownerId)
   Future<List<ListingRow>> getListingsByOwner(String ownerId) async {
     try {
-      // In this schema, the property ID is exactly the same as the landlord's auth UID.
-      // So a landlord can only have one listing, and its ID is their UID.
-      final data = await _client.from('listings').select().eq('id', ownerId);
+      final data =
+          await _client.from('listings').select().eq('id', ownerId);
       return (data as List).map((e) => ListingRow.fromJson(e)).toList();
-    } catch (_) {
+    } catch (e, stack) {
+      debugPrint('[DB] getListingsByOwner error: $e\n$stack');
       return const <ListingRow>[];
     }
   }
@@ -144,9 +161,17 @@ class DatabaseService {
     return BookingRow.fromJson(data);
   }
 
+  /// NOTE: If your bookings table uses a separate 'user_id' FK column
+  /// instead of 'id' as the user reference, change .eq('id', uid)
+  /// to .eq('user_id', uid) to match your schema.
   Future<List<BookingRow>> getBookingsForUser(String uid) async {
-    final data = await _client.from('booking').select().eq('id', uid);
-    return (data as List).map((e) => BookingRow.fromJson(e)).toList();
+    try {
+      final data = await _client.from('booking').select().eq('id', uid);
+      return (data as List).map((e) => BookingRow.fromJson(e)).toList();
+    } catch (e, stack) {
+      debugPrint('[DB] getBookingsForUser error: $e\n$stack');
+      return const <BookingRow>[];
+    }
   }
 
   // ── Confirm Booking ───────────────────────────────────────
@@ -166,7 +191,8 @@ class DatabaseService {
     try {
       final data = await _client.from('view_room_card').select().eq('id', uid);
       return (data as List).map((e) => ViewRoomCardRow.fromJson(e)).toList();
-    } catch (_) {
+    } catch (e, stack) {
+      debugPrint('[DB] getViewRoomCards error: $e\n$stack');
       return <ViewRoomCardRow>[];
     }
   }
@@ -190,8 +216,13 @@ class DatabaseService {
   // ── Favourites ────────────────────────────────────────────
 
   Future<List<FavouriteRow>> getFavourites(String uid) async {
-    final data = await _client.from('favourite').select().eq('id', uid);
-    return (data as List).map((e) => FavouriteRow.fromJson(e)).toList();
+    try {
+      final data = await _client.from('favourite').select().eq('id', uid);
+      return (data as List).map((e) => FavouriteRow.fromJson(e)).toList();
+    } catch (e, stack) {
+      debugPrint('[DB] getFavourites error: $e\n$stack');
+      return const <FavouriteRow>[];
+    }
   }
 
   Future<FavouriteRow> insertFavourite(FavouriteRow row) async {
@@ -212,12 +243,17 @@ class DatabaseService {
   Future<PaymentDetailsLandlordRow?> getLandlordPaymentDetails(
     String uid,
   ) async {
-    final data = await _client
-        .from('payment_details_lanlord')
-        .select()
-        .eq('id', uid)
-        .maybeSingle();
-    return data != null ? PaymentDetailsLandlordRow.fromJson(data) : null;
+    try {
+      final data = await _client
+          .from('payment_details_lanlord')
+          .select()
+          .eq('id', uid)
+          .maybeSingle();
+      return data != null ? PaymentDetailsLandlordRow.fromJson(data) : null;
+    } catch (e, stack) {
+      debugPrint('[DB] getLandlordPaymentDetails error: $e\n$stack');
+      return null;
+    }
   }
 
   Future<PaymentDetailsLandlordRow> upsertLandlordPaymentDetails(

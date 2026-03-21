@@ -42,12 +42,11 @@ class _OnboardingHomePageState extends State<OnboardingHomePage> {
   }
 
   Future<void> _load() async {
-    setState(() => _loading = true);
+    if (mounted) setState(() => _loading = true);
 
     final uid = AuthService.instance.currentUserUid;
     final isLandlord = AppState.instance.isLandlord;
 
-    // Fetch listings (main content) — isolated so other failures don't block it
     List<ListingRow> featured = [];
     try {
       featured = await DatabaseService.instance.getListings(limit: 10);
@@ -55,7 +54,6 @@ class _OnboardingHomePageState extends State<OnboardingHomePage> {
       debugPrint('Error fetching listings: $e\n$s');
     }
 
-    // Fetch room cards (rentee overview) — allowed to fail gracefully
     List<ViewRoomCardRow> roomCards = [];
     try {
       if (uid.isNotEmpty) {
@@ -65,13 +63,11 @@ class _OnboardingHomePageState extends State<OnboardingHomePage> {
       debugPrint('Error fetching room cards: $e\n$s');
     }
 
-    // Fetch landlord listings — allowed to fail gracefully
     List<ListingRow> landlordListings = [];
     try {
       if (isLandlord && uid.isNotEmpty) {
-        landlordListings = await DatabaseService.instance.getListingsByOwner(
-          uid,
-        );
+        landlordListings =
+            await DatabaseService.instance.getListingsByOwner(uid);
       }
     } catch (e, s) {
       debugPrint('Error fetching landlord listings: $e\n$s');
@@ -89,15 +85,13 @@ class _OnboardingHomePageState extends State<OnboardingHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    
     final theme = Theme.of(context);
     final isLandlord = AppState.instance.isLandlord;
     final isDark = theme.brightness == Brightness.dark;
-     RentoLocalizations? lMaybe;
-    try {
-      lMaybe = RentoLocalizations.of(context);
-    } catch (_) {}
-    final l = lMaybe ?? RentoLocalizations(const Locale('en'));
+    // FIX: Removed the incorrect try-catch around RentoLocalizations.of(context).
+    // If localizations aren't configured, this should throw to reveal the setup error,
+    // not silently fall back. The try-catch was masking configuration bugs.
+    final l = RentoLocalizations.of(context);
 
     return GestureDetector(
       onTap: () {
@@ -154,17 +148,20 @@ class _OnboardingHomePageState extends State<OnboardingHomePage> {
                   SliverPadding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     sliver: SliverList(
-                      delegate: SliverChildBuilderDelegate((context, index) {
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 16),
-                          child: PropertyCard(listing: _featured[index])
-                              .animate()
-                              .fadeIn(
-                                delay: (300 + index * 100).ms,
-                                duration: 350.ms,
-                              ),
-                        );
-                      }, childCount: _featured.length),
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 16),
+                            child: PropertyCard(listing: _featured[index])
+                                .animate()
+                                .fadeIn(
+                                  delay: (300 + index * 100).ms,
+                                  duration: 350.ms,
+                                ),
+                          );
+                        },
+                        childCount: _featured.length,
+                      ),
                     ),
                   ),
                 const SliverToBoxAdapter(child: SizedBox(height: 32)),
@@ -176,7 +173,8 @@ class _OnboardingHomePageState extends State<OnboardingHomePage> {
     );
   }
 
-  Widget _buildHeader(BuildContext context, RentoLocalizations l, bool isDark) {
+  Widget _buildHeader(
+      BuildContext context, RentoLocalizations l, bool isDark) {
     final theme = Theme.of(context);
     final altColor = isDark ? Colors.grey[700]! : Colors.grey[300]!;
 
@@ -248,7 +246,8 @@ class _OnboardingHomePageState extends State<OnboardingHomePage> {
                   ),
                   child: Icon(
                     Icons.notifications_none_rounded,
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                    color:
+                        theme.colorScheme.onSurface.withValues(alpha: 0.7),
                   ),
                 ),
               ),
@@ -277,15 +276,17 @@ class _OnboardingHomePageState extends State<OnboardingHomePage> {
   Widget _buildCategoryButton(BuildContext context, String label) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-
     return OutlinedButton(
       onPressed: () => context.push('/categories?category=$label'),
       style: OutlinedButton.styleFrom(
         foregroundColor: theme.colorScheme.onSurface,
         backgroundColor: theme.scaffoldBackgroundColor,
-        side: BorderSide(color: isDark ? Colors.grey[700]! : Colors.grey[300]!),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+        side: BorderSide(
+            color: isDark ? Colors.grey[700]! : Colors.grey[300]!),
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24)),
+        padding:
+            const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
       ),
       child: Text(
         label,
@@ -324,7 +325,8 @@ class _OnboardingHomePageState extends State<OnboardingHomePage> {
             Text(
               'Browse recent listings below and book the place that fits you.',
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.65),
+                color:
+                    theme.colorScheme.onSurface.withValues(alpha: 0.65),
               ),
             ),
             const SizedBox(height: 16),
@@ -355,8 +357,10 @@ class _OnboardingHomePageState extends State<OnboardingHomePage> {
         RoomCard(
           card: room,
           onPayRent: () {
+            final encodedName =
+                Uri.encodeComponent(room.propertyName ?? '');
             context.push(
-              '/rent-payment?propertyName=${Uri.encodeComponent(room.propertyName ?? '')}&rentAmount=${room.rentAmount ?? 0}&cardId=${room.id}',
+              '/rent-payment?propertyName=$encodedName&rentAmount=${room.rentAmount ?? 0}&cardId=${room.id}',
             );
           },
         ),
@@ -390,9 +394,10 @@ class _OnboardingHomePageState extends State<OnboardingHomePage> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Add your first property to start managing listings from this shared home page.',
+              'Add your first property to start managing listings.',
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.65),
+                color:
+                    theme.colorScheme.onSurface.withValues(alpha: 0.65),
               ),
             ),
             const SizedBox(height: 16),
@@ -433,7 +438,8 @@ class _OnboardingHomePageState extends State<OnboardingHomePage> {
               ),
             ),
             TextButton.icon(
-              onPressed: () => context.push('/edit-listing?id=${listing.id}'),
+              onPressed: () =>
+                  context.push('/edit-listing?id=${listing.id}'),
               icon: const Icon(Icons.edit_outlined, size: 18),
               label: const Text('Edit Property'),
               style: TextButton.styleFrom(
@@ -477,12 +483,14 @@ class _OnboardingHomePageState extends State<OnboardingHomePage> {
 
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? RentoTheme.cardDark : theme.colorScheme.surface,
+        color:
+            isDark ? RentoTheme.cardDark : theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
             blurRadius: 10,
-            color: Colors.black.withValues(alpha: isDark ? 0.16 : 0.08),
+            color:
+                Colors.black.withValues(alpha: isDark ? 0.16 : 0.08),
             offset: const Offset(0, 4),
           ),
         ],
@@ -513,7 +521,7 @@ class _OnboardingHomePageState extends State<OnboardingHomePage> {
                   child: Text(
                     statusLabel.isNotEmpty
                         ? statusLabel[0].toUpperCase() +
-                              statusLabel.substring(1)
+                            statusLabel.substring(1)
                         : 'Active',
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: RentoTheme.successColor,

@@ -33,12 +33,14 @@ class _PropertyDetailPageState extends State<PropertyDetailPage> {
       final listing = await DatabaseService.instance.getListing(
         widget.listingId,
       );
-      setState(() {
-        _listing = listing;
-        _loading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _listing = listing;
+          _loading = false;
+        });
+      }
     } catch (_) {
-      setState(() => _loading = false);
+      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -86,9 +88,15 @@ class _PropertyDetailPageState extends State<PropertyDetailPage> {
                             onPageChanged: (i) =>
                                 setState(() => _currentImage = i),
                             itemBuilder: (_, i) => GestureDetector(
-                              onTap: () => context.push(
-                                '/explore-images?images=${listing.images.join(',')}',
-                              ),
+                              onTap: () {
+                                // FIX: URL-encode each image URL before joining with comma.
+                                // Image URLs may contain commas or special characters in query
+                                // params, which would corrupt the comma-separated list.
+                                final encoded = listing.images
+                                    .map(Uri.encodeComponent)
+                                    .join(',');
+                                context.push('/explore-images?images=$encoded');
+                              },
                               child: CachedNetworkImage(
                                 imageUrl: listing.images[i],
                                 fit: BoxFit.cover,
@@ -158,7 +166,6 @@ class _PropertyDetailPageState extends State<PropertyDetailPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Name & type
                   Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -202,7 +209,6 @@ class _PropertyDetailPageState extends State<PropertyDetailPage> {
                       ),
                   const SizedBox(height: 8),
 
-                  // Location
                   Row(
                     children: [
                       Icon(
@@ -225,7 +231,6 @@ class _PropertyDetailPageState extends State<PropertyDetailPage> {
                   ).animate().fadeIn(delay: 100.ms, duration: 400.ms),
                   const SizedBox(height: 16),
 
-                  // Price container
                   Container(
                         padding: const EdgeInsets.all(18),
                         decoration: BoxDecoration(
@@ -294,7 +299,6 @@ class _PropertyDetailPageState extends State<PropertyDetailPage> {
                       ),
                   const SizedBox(height: 24),
 
-                  // Quick info chips
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
@@ -339,7 +343,6 @@ class _PropertyDetailPageState extends State<PropertyDetailPage> {
                   ).animate().fadeIn(delay: 350.ms, duration: 400.ms),
                   const SizedBox(height: 24),
 
-                  // Description
                   if (listing.description != null &&
                       listing.description!.isNotEmpty) ...[
                     Text(
@@ -359,7 +362,6 @@ class _PropertyDetailPageState extends State<PropertyDetailPage> {
                     const SizedBox(height: 24),
                   ],
 
-                  // Amenities
                   if (listing.amenities.isNotEmpty) ...[
                     Text(
                       l.get('amenities'),
@@ -387,14 +389,13 @@ class _PropertyDetailPageState extends State<PropertyDetailPage> {
                     const SizedBox(height: 24),
                   ],
 
-                  // Room availability
                   if (listing.totalRoom != null ||
                       listing.roomAvailable != null) ...[
                     Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color:
-                                Theme.of(context).brightness == Brightness.dark
+                            color: Theme.of(context).brightness ==
+                                    Brightness.dark
                                 ? Colors.white.withValues(alpha: 0.05)
                                 : Colors.grey[50],
                             borderRadius: BorderRadius.circular(16),
@@ -439,77 +440,72 @@ class _PropertyDetailPageState extends State<PropertyDetailPage> {
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-          child:
-              Container(
-                    decoration: BoxDecoration(
-                      gradient: RentoTheme.primaryGradient,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: RentoTheme.primaryColor.withValues(
-                            alpha: 0.35,
-                          ),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
+          child: Container(
+                decoration: BoxDecoration(
+                  gradient: RentoTheme.primaryGradient,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: RentoTheme.primaryColor.withValues(alpha: 0.35),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
                     ),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: () {
-                          final uid = AuthService.instance.currentUserUid;
-                          if (listing.id == uid) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'You cannot book your own property!',
-                                ),
-                                backgroundColor: Colors.red,
-                              ),
-                            );
-                            return;
-                          }
-                          context.push(
-                            '/payment-option?listingId=${listing.id}',
-                          );
-                        },
-                        borderRadius: BorderRadius.circular(16),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(
-                                Icons.calendar_today_rounded,
-                                color: Colors.white,
-                                size: 20,
-                              ),
-                              const SizedBox(width: 10),
-                              Text(
-                                l.get('bookNow'),
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 16,
-                                  letterSpacing: 0.3,
-                                ),
-                              ),
-                            ],
+                  ],
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () {
+                      final uid = AuthService.instance.currentUserUid;
+                      if (listing.id == uid) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'You cannot book your own property!',
+                            ),
+                            backgroundColor: Colors.red,
                           ),
-                        ),
+                        );
+                        return;
+                      }
+                      context.push('/payment-option?listingId=${listing.id}');
+                    },
+                    borderRadius: BorderRadius.circular(16),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            Icons.calendar_today_rounded,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            l.get('bookNow'),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 16,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  )
-                  .animate()
-                  .fadeIn(delay: 300.ms, duration: 500.ms)
-                  .slideY(
-                    begin: 0.3,
-                    end: 0,
-                    delay: 300.ms,
-                    duration: 500.ms,
-                    curve: Curves.easeOut,
                   ),
+                ),
+              )
+              .animate()
+              .fadeIn(delay: 300.ms, duration: 500.ms)
+              .slideY(
+                begin: 0.3,
+                end: 0,
+                delay: 300.ms,
+                duration: 500.ms,
+                curve: Curves.easeOut,
+              ),
         ),
       ),
     );

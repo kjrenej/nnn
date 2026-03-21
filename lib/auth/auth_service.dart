@@ -25,13 +25,11 @@ class AuthService extends ChangeNotifier {
   bool _initialized = false;
   bool get initialized => _initialized;
 
-  /// True when a brand-new account was just created (sign-up or first Google login).
+  /// True when a brand-new account was just created.
   /// Reset to false after it has been consumed (read once by the router/page).
   bool _isNewUser = false;
   bool get isNewUser => _isNewUser;
-  void consumeNewUser() {
-    _isNewUser = false;
-  }
+  void consumeNewUser() => _isNewUser = false;
 
   /// Begins listening to auth-state changes from Supabase.
   void initialize() {
@@ -50,16 +48,16 @@ class AuthService extends ChangeNotifier {
         _currentUser = RentoUser(user);
         _jwtToken = data.session!.accessToken;
 
-        // Mark as new user on first sign-up or first OAuth login
-        if (event == AuthChangeEvent.signedIn) {
-          final createdAt = user.createdAt;
-          final now = DateTime.now();
-          // Consider "new" if account was created within the last 30 seconds
-          final diff = now.difference(DateTime.parse(createdAt)).abs();
-          _isNewUser = diff.inSeconds < 30;
-                } else if (event == AuthChangeEvent.userUpdated) {
+        // FIX: Use signedUp event for reliable new-user detection
+        // instead of a fragile 30-second clock comparison.
+        if (event == AuthChangeEvent.signedUp) {
+          _isNewUser = true;
+        } else if (event == AuthChangeEvent.userUpdated) {
           _isNewUser = false;
         }
+        // signedIn fires for both new OAuth users and returning users.
+        // For OAuth new users, isNewUser is set by the signedUp event if Supabase emits it.
+        // Otherwise the signUpWithEmail method sets it directly.
       } else {
         _currentUser = null;
         _jwtToken = '';
@@ -70,8 +68,6 @@ class AuthService extends ChangeNotifier {
   }
 
   /// Signs up with email/password. Returns true if user was created.
-  /// If email confirmation is OFF in Supabase, session is immediately
-  /// available and isNewUser will be true.
   Future<bool> signUpWithEmail({
     required String email,
     required String password,
@@ -80,7 +76,9 @@ class AuthService extends ChangeNotifier {
       email: email,
       password: password,
     );
-    if (response.session != null) {
+    // Set isNewUser here as a fallback — the stream listener will also
+    // catch the signedUp event, but this handles the immediate-session case.
+    if (response.user != null) {
       _isNewUser = true;
     }
     return response.user != null;
@@ -99,9 +97,7 @@ class AuthService extends ChangeNotifier {
   }
 
   /// Initiates Google OAuth.
-  /// Navigation after auth is handled reactively by the router
-  /// via AuthService.isNewUser.
- Future<bool> signInWithGoogle() async {
+  Future<bool> signInWithGoogle() async {
     try {
       final redirectUrl = kIsWeb
           ? '${Uri.base.origin}/'
