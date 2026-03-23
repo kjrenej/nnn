@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import '../../auth/auth_service.dart';
 import '../../backend/database_service.dart';
@@ -95,11 +96,11 @@ class _UserDetailsPageState extends State<UserDetailsPage> {
                   required: true,
                 ),
                 const SizedBox(height: 16),
-                _field(
+                // Phone number — digits only, stored as int in DB
+                _numberField(
                   _phoneCtrl,
                   l.get('phone'),
                   Icons.phone_outlined,
-                  keyboard: TextInputType.phone,
                   required: true,
                 ),
                 const SizedBox(height: 16),
@@ -119,11 +120,12 @@ class _UserDetailsPageState extends State<UserDetailsPage> {
                   required: true,
                 ),
                 const SizedBox(height: 16),
-                _field(
+                // Emergency number — digits only, stored as int in DB
+                _numberField(
                   _emergencyCtrl,
                   l.get('emergencyNumber'),
                   Icons.emergency_outlined,
-                  keyboard: TextInputType.phone,
+                  required: false,
                 ),
                 const SizedBox(height: 32),
                 ElevatedButton(
@@ -147,6 +149,7 @@ class _UserDetailsPageState extends State<UserDetailsPage> {
     );
   }
 
+  /// Standard text field for non-numeric fields.
   Widget _field(
     TextEditingController ctrl,
     String label,
@@ -161,6 +164,37 @@ class _UserDetailsPageState extends State<UserDetailsPage> {
       validator: required
           ? (v) => (v == null || v.trim().isEmpty) ? '$label is required' : null
           : null,
+    );
+  }
+
+  /// Numeric-only field for phone / emergency number (int type in DB).
+  /// Accepts only digits, max 10 digits, validates it can be parsed as int.
+  Widget _numberField(
+    TextEditingController ctrl,
+    String label,
+    IconData icon, {
+    bool required = false,
+  }) {
+    return TextFormField(
+      controller: ctrl,
+      keyboardType: TextInputType.number,
+      // Restrict input to digits only
+      inputFormatters: [
+        FilteringTextInputFormatter.digitsOnly,
+        LengthLimitingTextInputFormatter(10),
+      ],
+      decoration: InputDecoration(labelText: label, prefixIcon: Icon(icon)),
+      validator: (v) {
+        if (required && (v == null || v.trim().isEmpty)) {
+          return '$label is required';
+        }
+        if (v != null && v.isNotEmpty) {
+          final parsed = int.tryParse(v.trim());
+          if (parsed == null) return 'Enter a valid number';
+          if (v.trim().length < 10) return 'Must be 10 digits';
+        }
+        return null;
+      },
     );
   }
 }

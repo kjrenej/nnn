@@ -39,8 +39,10 @@ final _shellNavigatorKey = GlobalKey<NavigatorState>();
 final GoRouter appRouter = GoRouter(
   navigatorKey: _rootNavigatorKey,
   initialLocation: '/',
-  refreshListenable:
-      Listenable.merge([AuthService.instance, AppState.instance]),
+  refreshListenable: Listenable.merge([
+    AuthService.instance,
+    AppState.instance,
+  ]),
   redirect: (context, state) {
     final auth = AuthService.instance;
     final loggedIn = auth.loggedIn;
@@ -257,8 +259,9 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: '/rent-payment',
       pageBuilder: (context, state) {
-        final propertyName =
-            Uri.decodeComponent(state.uri.queryParameters['propertyName'] ?? '');
+        final propertyName = Uri.decodeComponent(
+          state.uri.queryParameters['propertyName'] ?? '',
+        );
         final rentAmount = state.uri.queryParameters['rentAmount'] ?? '0';
         final cardId = state.uri.queryParameters['cardId'] ?? '';
         return slideRightTransition(
@@ -326,10 +329,7 @@ final GoRouter appRouter = GoRouter(
         children: [
           const Icon(Icons.error_outline, size: 64, color: Colors.grey),
           const SizedBox(height: 16),
-          Text(
-            'Page not found',
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
+          Text('Page not found', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 8),
           Text(
             state.matchedLocation,

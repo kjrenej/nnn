@@ -37,14 +37,16 @@ class UserRow {
           DateTime.tryParse(json['created_at']?.toString() ?? '') ??
           DateTime.now(),
       displayName: json['display_name'] as String?,
-      phoneNumber: json['phone_number'] as String?,
+      // DB stores as int — use toString() to safely handle both int and String
+      phoneNumber: json['phone_number']?.toString(),
       email: json['email'] as String?,
       profilePic: json['profile_pic'] as String?,
       role: json['role'] as String?,
       address: json['address'] as String?,
       city: json['city'] as String?,
       state: json['state'] as String?,
-      emergencyNumber: json['emergency_number'] as String?,
+      // DB stores as int — use toString() to safely handle both int and String
+      emergencyNumber: json['emergency_number']?.toString(),
       govProofId: json['gov_proof_id'] as String?,
       onboardingStep: (json['onboarding_step'] as num?)?.toInt(),
     );
@@ -55,14 +57,18 @@ class UserRow {
       'id': id,
       'created_at': createdAt.toIso8601String(),
       if (displayName != null) 'display_name': displayName,
-      if (phoneNumber != null) 'phone_number': phoneNumber,
+      // Write back as int so the DB column type is satisfied
+      if (phoneNumber != null)
+        'phone_number': int.tryParse(phoneNumber!) ?? phoneNumber,
       if (email != null) 'email': email,
       if (profilePic != null) 'profile_pic': profilePic,
       if (role != null) 'role': role,
       if (address != null) 'address': address,
       if (city != null) 'city': city,
       if (state != null) 'state': state,
-      if (emergencyNumber != null) 'emergency_number': emergencyNumber,
+      // Write back as int so the DB column type is satisfied
+      if (emergencyNumber != null)
+        'emergency_number': int.tryParse(emergencyNumber!) ?? emergencyNumber,
       if (govProofId != null) 'gov_proof_id': govProofId,
       if (onboardingStep != null) 'onboarding_step': onboardingStep,
     };
