@@ -24,7 +24,11 @@ class _RoleLoaderPageState extends State<RoleLoaderPage> {
     try {
       final uid = AuthService.instance.currentUserUid;
       final user = await DatabaseService.instance.getUser(uid);
-      if (user == null || user.role == null) {
+      if (user == null) {
+  if (mounted) context.go('/user-details');
+  return;
+}
+      if (user.role == null) {
         if (mounted) context.go('/role-selection');
         return;
       }
